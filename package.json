@@ -1,0 +1,13 @@
+{
+  "name": "pipeline-log-aggregator",
+  "version": "1.0.0",
+  "description": "Log aggregator server for Badal's pipeline",
+  "main": "log_aggregator.js",
+  "scripts": {
+    "start": "node log_aggregator.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}
