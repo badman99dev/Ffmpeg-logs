@@ -485,7 +485,7 @@ async function fetchFromAxiom(batch) {
       ? new Date(batch.lastSeenTs)
       : new Date(end - 4 * 60 * 60_000); // pehli baar: 4 ghante back
 
-    const apl = `['${AXIOM_DATASET}'] | where data.batch_id == "${batch.id}" | sort by _time asc | limit ${AXIOM_PAGE_SIZE}`;
+    const apl = `['${AXIOM_DATASET}'] | search "${batch.id}" | sort by _time asc | limit ${AXIOM_PAGE_SIZE}`;
 
     const res = await fetch(AXIOM_URL, {
       method:  'POST',
