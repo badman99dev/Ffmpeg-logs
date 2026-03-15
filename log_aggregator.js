@@ -670,6 +670,26 @@ app.get('/status/:batch_id', (req, res) => {
 });
 
 /**
+ * GET / — Root route
+ */
+app.get('/', (req, res) => {
+  const batches = [];
+  store.forEach((b, id) => batches.push({ id, tier: b.tier, logCount: b.logCount, phase: b.state.phase, done: b.state.done }));
+  res.json({
+    name:          '🚀 Pipeline Log Aggregator v3.0',
+    status:        'RUNNING ✅',
+    uptime:        Math.round(process.uptime()) + 's',
+    axiom:         AXIOM_TOKEN ? '✅ Connected' : '❌ Token missing!',
+    dataset:       AXIOM_DATASET,
+    activeBatches: batches.filter(b => b.tier === 'active').length,
+    idleBatches:   batches.filter(b => b.tier === 'idle').length,
+    totalBatches:  batches.length,
+    batches,
+    routes: { 'GET /start/:id': 'Batch shuru karo', 'GET /status/:id': 'Parsed state lo', 'GET /health': 'Health check', 'DELETE /clear/:id': 'Batch delete karo' }
+  });
+});
+
+/**
  * GET /health
  */
 app.get('/health', (req, res) => {
