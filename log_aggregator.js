@@ -17,6 +17,8 @@
  */
 
 const express = require('express');
+const path    = require('path');
+const fs      = require('fs');
 const cors    = require('cors');
 const app     = express();
 app.use(cors());
@@ -667,6 +669,19 @@ app.get('/status/:batch_id', (req, res) => {
     state:     batch.state,
     logs:      batch.recentLogs,
   });
+});
+
+/**
+ * GET /logs/:id — HTML monitor serve karo
+ * Browser mein: https://ffmpeg-logs.onrender.com/logs/1021709
+ */
+app.get('/logs/:id', (req, res) => {
+  const htmlPath = path.join(__dirname, 'index.html');
+  if (fs.existsSync(htmlPath)) {
+    res.sendFile(htmlPath);
+  } else {
+    res.status(404).send('index.html not found. Upload it alongside log_aggregator_v4.js');
+  }
 });
 
 /**

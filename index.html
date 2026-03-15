@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>⚡ Pipeline Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060810;--panel:#0a0d14;--card:#0d1120;--border:#161d2e;
+  --amber:#f0a500;--cyan:#00c8ff;--green:#00e087;--red:#ff4060;
+  --purple:#b08aff;--blue:#4488ff;--dim:#3a4560;--txt:#8899bb;--bright:#ccd8f0;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:'JetBrains Mono',monospace;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 30% 40%,rgba(0,200,255,.04) 0%,transparent 70%),radial-gradient(ellipse 50% 60% at 75% 70%,rgba(176,138,255,.04) 0%,transparent 70%);}
+
+/* ══ HEADER ══ */
+#hdr{position:relative;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#logo{font-family:'Orbitron',monospace;font-weight:900;font-size:11px;color:var(--amber);letter-spacing:3px;text-shadow:0 0 16px rgba(240,165,0,.5);line-height:1.4;flex-shrink:0;white-space:nowrap;}
+.hs{width:1px;height:22px;background:var(--border);flex-shrink:0;}
+.hg{display:flex;align-items:center;gap:5px;}
+.hl{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+input{background:#080b11;border:1px solid var(--border);color:var(--bright);padding:6px 10px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s;}
+input:focus{border-color:var(--amber);}
+#i-mid{width:110px;}
+.btn{padding:6px 13px;border:none;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.5px;white-space:nowrap;}
+.bp{background:var(--amber);color:#000;box-shadow:0 0 10px rgba(240,165,0,.3);}
+.bp:hover{box-shadow:0 0 20px rgba(240,165,0,.6);}
+.bp.on{background:var(--green);box-shadow:0 0 10px rgba(0,224,135,.3);color:#000;}
+.bg{background:transparent;border:1px solid var(--border);color:var(--dim);}
+.bg:hover{border-color:var(--amber);color:var(--amber);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all .3s;}
+.dot.live{background:var(--green);box-shadow:0 0 7px var(--green);animation:pulse 2s infinite;}
+.dot.err{background:var(--red);box-shadow:0 0 7px var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#clbl{font-size:9px;color:var(--dim);}
+
+/* ══ MOVIE BAR ══ */
+#movie-bar{
+  display:none;position:relative;z-index:9;
+  background:linear-gradient(90deg,rgba(176,138,255,.08),rgba(0,200,255,.05));
+  border-bottom:1px solid rgba(176,138,255,.2);
+  padding:6px 14px;align-items:center;gap:10px;flex-wrap:wrap;
+}
+#movie-bar.show{display:flex;}
+#movie-title{
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  color:var(--bright);letter-spacing:1px;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#movie-title .mid-tag{
+  font-size:8px;color:var(--dim);margin-right:8px;
+  background:rgba(255,255,255,.05);padding:1px 5px;border-radius:3px;
+}
+.movie-btn{
+  padding:4px 12px;border-radius:3px;font-family:'JetBrains Mono',monospace;
+  font-size:9px;font-weight:700;cursor:pointer;text-decoration:none;
+  transition:all .2s;white-space:nowrap;letter-spacing:.5px;
+}
+#btn-watch-movie{
+  background:rgba(176,138,255,.15);border:1px solid var(--purple);
+  color:var(--purple);
+}
+#btn-watch-movie:hover{background:rgba(176,138,255,.3);box-shadow:0 0 12px rgba(176,138,255,.3);}
+#movie-loading{font-size:9px;color:var(--dim);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ══ LAYOUT ══ */
+#main{position:relative;z-index:1;flex:1;display:flex;overflow:hidden;}
+#viz{flex:1;min-width:0;display:grid;grid-template-rows:auto auto 1fr;grid-template-columns:1fr 1fr;gap:10px;padding:12px;overflow-y:auto;}
+#viz::-webkit-scrollbar{width:3px;}
+#viz::-webkit-scrollbar-thumb{background:var(--border);}
+
+/* ── RING CARD ── */
+#ring-card{grid-column:1/2;grid-row:1/3;background:var(--card);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:12px;position:relative;overflow:hidden;}
+#ring-card::before{content:'';position:absolute;inset:0;border-radius:8px;background:radial-gradient(circle at 50% 40%,rgba(240,165,0,.05) 0%,transparent 65%);pointer-events:none;}
+.card-title{font-family:'Orbitron',monospace;font-size:8px;font-weight:700;color:var(--dim);letter-spacing:2px;text-transform:uppercase;align-self:flex-start;}
+#ring-wrap{position:relative;width:160px;height:160px;}
+#ring-svg{width:160px;height:160px;transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:var(--border);stroke-width:10;}
+.ring-fg{fill:none;stroke:var(--amber);stroke-width:10;stroke-linecap:round;stroke-dasharray:440;stroke-dashoffset:440;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1),stroke .3s;filter:drop-shadow(0 0 6px var(--amber));}
+#ring-pct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+#ring-num{font-family:'Orbitron',monospace;font-size:30px;font-weight:900;color:var(--amber);line-height:1;text-shadow:0 0 20px rgba(240,165,0,.5);}
+#ring-lbl{font-size:9px;color:var(--dim);letter-spacing:1px;}
+#ring-phase{font-size:10px;color:var(--bright);text-align:center;line-height:1.4;}
+#ring-icon{font-size:22px;}
+#timeline{display:flex;gap:4px;align-items:center;}
+.tl-dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--border);background:var(--bg);transition:all .3s;flex-shrink:0;}
+.tl-dot.done{background:var(--green);border-color:var(--green);box-shadow:0 0 5px var(--green);}
+.tl-dot.active{background:var(--amber);border-color:var(--amber);box-shadow:0 0 7px var(--amber);animation:pulse 1.5s infinite;}
+.tl-dot.err{background:var(--red);border-color:var(--red);}
+.tl-line{width:14px;height:1px;background:var(--border);flex-shrink:0;}
+.tl-line.done{background:var(--green);}
+
+/* ── DOWNLOAD CARD ── */
+#dl-card{grid-column:2/3;grid-row:1/2;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+.big-pct{font-family:'Orbitron',monospace;font-size:36px;font-weight:900;line-height:1;color:var(--cyan);text-shadow:0 0 16px rgba(0,200,255,.4);display:flex;align-items:baseline;gap:4px;}
+.big-pct span{font-size:14px;color:var(--dim);}
+.bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.4,0,.2,1);width:0%;}
+.dl-bar{background:linear-gradient(90deg,var(--cyan),#0088ff);}
+.ff-bar-f{background:linear-gradient(90deg,var(--purple),var(--cyan));}
+.up-bar-f{background:linear-gradient(90deg,var(--blue),var(--green));}
+.sub-row{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);}
+.sub-val{color:var(--cyan);}
+
+/* ── FFMPEG CARD ── */
+#ff-card{grid-column:2/3;grid-row:2/3;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+#ff-single{display:flex;flex-direction:column;gap:8px;}
+.ff-stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.ff-stat{display:flex;flex-direction:column;gap:2px;}
+.ff-sk{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;}
+.ff-sv{font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:var(--purple);line-height:1;}
+#ff-dual{display:none;gap:8px;}
+#ff-dual.show{display:flex;}
+.ff-panel{flex:1;border:1px solid var(--border);border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:5px;transition:border-color .3s;}
+.ff-panel.active{border-color:var(--purple);box-shadow:0 0 8px rgba(176,138,255,.15);}
+.fp-lbl{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--dim);letter-spacing:1px;display:flex;align-items:center;gap:5px;}
+.fp-lbl .fp-q{color:var(--purple);}
+.fp-lbl .fp-dot{width:5px;height:5px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all .3s;}
+.ff-panel.active .fp-lbl .fp-dot{background:var(--purple);box-shadow:0 0 5px var(--purple);animation:pulse 1s infinite;}
+.fp-bar-w{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+.fp-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--purple),var(--cyan));width:0%;transition:width .4s;}
+.fp-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
+.fp-stat{display:flex;flex-direction:column;gap:1px;}
+.fp-sk{font-size:7px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;}
+.fp-sv{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--purple);line-height:1.2;}
+
+/* ── UPLOAD CARD ── */
+#up-card{grid-column:1/3;grid-row:3/4;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+#up-filename{font-size:10px;color:var(--blue);word-break:break-all;}
+.up-row{display:flex;align-items:center;gap:10px;}
+.up-pct-big{font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:var(--blue);white-space:nowrap;text-shadow:0 0 14px rgba(68,136,255,.4);}
+.up-info{flex:1;display:flex;flex-direction:column;gap:4px;}
+.up-meta{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);}
+.up-mv{color:var(--blue);}
+
+/* ── QUALITY GRID ── */
+#q-section{grid-column:1/3;display:flex;gap:8px;}
+.qcard{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:4px;transition:all .3s;}
+.qcard.running{border-color:var(--amber);box-shadow:0 0 12px rgba(240,165,0,.15);}
+.qcard.done{border-color:var(--green);box-shadow:0 0 8px rgba(0,224,135,.1);}
+.qcard.skip{opacity:.4;}
+.qcard.parallel{border-color:var(--cyan);box-shadow:0 0 10px rgba(0,200,255,.12);}
+.qc-label{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--dim);transition:color .3s;}
+.qcard.running .qc-label{color:var(--amber);}
+.qcard.parallel .qc-label{color:var(--cyan);}
+.qcard.done .qc-label{color:var(--green);}
+.qc-size{font-size:9px;color:var(--dim);}
+.qcard.done .qc-size{color:var(--green);}
+.qc-elapsed{font-size:8px;color:var(--dim);}
+.qcard.done .qc-elapsed{color:var(--green);}
+.qc-status{font-size:8px;letter-spacing:.5px;}
+.qcard.running .qc-status{color:var(--amber);}
+.qcard.parallel .qc-status{color:var(--cyan);}
+.qcard.done .qc-status{color:var(--green);}
+.qc-bar-w{height:2px;background:var(--border);border-radius:1px;overflow:hidden;margin-top:2px;}
+.qc-bar{height:100%;border-radius:1px;background:var(--green);width:0%;transition:width .5s;}
+.qcard.running .qc-bar{background:var(--amber);}
+.qcard.parallel .qc-bar{background:var(--cyan);animation:indeterminate 2s infinite;}
+@keyframes indeterminate{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+
+/* ══ LOG PANEL ══ */
+#logs{width:310px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#lf-bar{padding:5px 8px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-wrap:wrap;align-items:center;}
+.lf{padding:2px 7px;border-radius:10px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:8px;cursor:pointer;background:transparent;color:var(--dim);transition:all .15s;}
+.lf:hover{border-color:var(--amber);color:var(--amber);}
+.lf.on{border-color:var(--amber);color:var(--amber);background:rgba(240,165,0,.06);}
+.lf.og{border-color:var(--green);color:var(--green);background:rgba(0,224,135,.06);}
+.lf.or{border-color:var(--red);color:var(--red);background:rgba(255,64,96,.06);}
+.lf.op{border-color:var(--purple);color:var(--purple);background:rgba(176,138,255,.06);}
+.lf.ob{border-color:var(--blue);color:var(--blue);background:rgba(68,136,255,.06);}
+#lc{margin-left:auto;font-size:8px;color:var(--dim);}
+#log-box{flex:1;overflow-y:auto;padding:3px 2px;}
+#log-box::-webkit-scrollbar{width:3px;}
+#log-box::-webkit-scrollbar-thumb{background:var(--border);}
+.le{display:flex;gap:0;padding:1px 4px;border-radius:2px;transition:background .1s;align-items:flex-start;}
+.le:hover{background:rgba(255,255,255,.015);}
+.lt{color:var(--dim);min-width:60px;font-size:8.5px;flex-shrink:0;padding-top:2px;}
+.ltg{font-size:7.5px;font-weight:700;padding:1px 4px;border-radius:2px;align-self:flex-start;margin-right:5px;margin-top:2px;flex-shrink:0;min-width:44px;text-align:center;}
+.tff{background:rgba(176,138,255,.12);color:var(--purple);}
+.tup{background:rgba(68,136,255,.10);color:var(--blue);}
+.ter{background:rgba(255,64,96,.12);color:var(--red);}
+.twn{background:rgba(255,160,0,.12);color:orange;}
+.tok{background:rgba(0,224,135,.12);color:var(--green);}
+.tsk{background:rgba(58,69,85,.12);color:var(--dim);}
+.tsy{background:rgba(240,165,0,.10);color:var(--amber);}
+.tdf{background:transparent;color:var(--dim);}
+.lm{flex:1;white-space:pre-wrap;word-break:break-all;font-size:9.5px;line-height:1.45;}
+.mff{color:var(--purple);}.mup{color:var(--blue);}.mer{color:var(--red);}
+.mwn{color:orange;}.mok{color:var(--green);}.msk{color:var(--dim);}
+.msy{color:var(--amber);}.mdf{color:#5a6a88;}
+
+/* ══ STATUS BAR ══ */
+#sbar{position:relative;z-index:10;padding:4px 14px;border-top:1px solid var(--border);background:var(--panel);display:flex;justify-content:space-between;align-items:center;font-size:9px;color:var(--dim);gap:14px;}
+#sbar-msg{color:var(--bright);}
+#elapsed{font-family:'Orbitron',monospace;font-size:9px;color:var(--amber);}
+#sb-tier{font-size:8px;padding:1px 5px;border-radius:3px;border:1px solid var(--border);}
+#sb-tier.active{color:var(--green);border-color:var(--green);background:rgba(0,224,135,.06);}
+#sb-tier.idle{color:var(--dim);border-color:var(--border);}
+#empty-log{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px;color:var(--dim);font-size:10px;}
+#empty-log .big{font-size:28px;}
+#empty-log .h{font-size:8px;color:var(--dim);text-align:center;line-height:1.6;}
+
+/* ══ MOBILE ══ */
+@media(max-width:768px){
+  body{overflow:auto;height:auto;min-height:100vh;}
+  #hdr{padding:8px 10px;gap:8px;}
+  #logo{font-size:9px;letter-spacing:2px;}
+  .hs{display:none;}
+  #i-mid{width:90px;font-size:12px;}
+  #main{flex-direction:column;overflow:visible;height:auto;}
+  #viz{grid-template-columns:1fr;grid-template-rows:auto;overflow:visible;height:auto;padding:8px;gap:8px;}
+  #ring-card{grid-column:1/2;grid-row:auto;flex-direction:row;padding:14px;gap:14px;align-items:center;justify-content:flex-start;}
+  #ring-wrap{width:100px;height:100px;flex-shrink:0;}
+  #ring-svg{width:100px;height:100px;}
+  #ring-num{font-size:20px;}
+  #ring-icon{font-size:16px;}
+  #ring-lbl{font-size:8px;}
+  #ring-phase{font-size:9px;}
+  #ring-card .card-title{display:none;}
+  .ring-right{display:flex;flex-direction:column;gap:10px;flex:1;}
+  #timeline{flex-wrap:wrap;gap:3px;}
+  .tl-line{width:8px;}
+  .tl-dot{width:6px;height:6px;}
+  .mobile-row{display:flex;gap:8px;}
+  #dl-card,#ff-card{grid-column:1/2;grid-row:auto;flex:1;}
+  .big-pct{font-size:24px;}
+  .ff-sv{font-size:11px;}
+  #up-card{grid-column:1/2;grid-row:auto;}
+  .up-pct-big{font-size:20px;}
+  #q-section{grid-column:1/2;grid-row:auto;flex-wrap:wrap;}
+  .qcard{flex:0 0 calc(33.33% - 6px);min-width:0;}
+  .qc-label{font-size:9px;}
+  #logs{width:100%;border-left:none;border-top:1px solid var(--border);height:280px;flex-shrink:0;}
+  #sbar{flex-wrap:wrap;gap:6px;font-size:8px;padding:4px 10px;}
+  #sbar span:not(#sbar-msg):not(#elapsed){display:none;}
+  #movie-title{font-size:9px;}
+}
+@media(max-width:400px){
+  .qcard{flex:0 0 calc(50% - 4px);}
+  .ff-stats-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <span id="logo">PIPELINE<br>MONITOR</span>
+  <div class="hs"></div>
+  <div class="hg">
+    <span class="hl">BATCH ID</span>
+    <input id="i-mid" type="text" placeholder="Enter ID..." autocomplete="off" spellcheck="false">
+  </div>
+  <div class="hs"></div>
+  <button class="btn bp" id="btn-w" onclick="toggleWatch()">▶ WATCH</button>
+  <button class="btn bg" onclick="exportLogs()">⬇ EXPORT</button>
+  <button class="btn bg" onclick="clearAll()">✕ CLEAR</button>
+  <div class="hs"></div>
+  <div class="dot" id="cdot"></div>
+  <span id="clbl">IDLE</span>
+</div>
+
+<!-- MOVIE INFO BAR -->
+<div id="movie-bar">
+  <span id="movie-title"><span class="mid-tag" id="mid-tag"></span><span id="movie-name">Loading...</span></span>
+  <span id="movie-loading">⏳ Fetching info...</span>
+  <a id="btn-watch-movie" class="movie-btn" href="#" target="_blank" style="display:none">🎬 Watch Movie</a>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="viz">
+
+    <!-- RING -->
+    <div id="ring-card">
+      <div class="card-title">OVERALL PROGRESS</div>
+      <div id="ring-wrap">
+        <svg id="ring-svg" viewBox="0 0 160 160">
+          <circle class="ring-bg" cx="80" cy="80" r="70"/>
+          <circle class="ring-fg" id="ring-arc" cx="80" cy="80" r="70"/>
+        </svg>
+        <div id="ring-pct">
+          <div id="ring-icon">⏳</div>
+          <div id="ring-num">0%</div>
+          <div id="ring-lbl">WAITING</div>
+        </div>
+      </div>
+      <div class="ring-right">
+        <div id="timeline">
+          <div class="tl-dot" id="tl-0" title="Security"></div><div class="tl-line" id="tll-0"></div>
+          <div class="tl-dot" id="tl-1" title="Download"></div><div class="tl-line" id="tll-1"></div>
+          <div class="tl-dot" id="tl-2" title="Analyze"></div><div class="tl-line" id="tll-2"></div>
+          <div class="tl-dot" id="tl-3" title="Original"></div><div class="tl-line" id="tll-3"></div>
+          <div class="tl-dot" id="tl-4" title="Audio"></div><div class="tl-line" id="tll-4"></div>
+          <div class="tl-dot" id="tl-5" title="240/360p"></div><div class="tl-line" id="tll-5"></div>
+          <div class="tl-dot" id="tl-6" title="480/720p"></div><div class="tl-line" id="tll-6"></div>
+          <div class="tl-dot" id="tl-7" title="1080p"></div><div class="tl-line" id="tll-7"></div>
+          <div class="tl-dot" id="tl-8" title="Complete"></div>
+        </div>
+        <div id="ring-phase" style="font-size:9px;color:var(--dim);">Enter Batch ID → WATCH</div>
+      </div>
+    </div>
+
+    <!-- DOWNLOAD -->
+    <div id="dl-card">
+      <div class="card-title">DOWNLOAD</div>
+      <div class="big-pct" id="dl-pct">—<span>%</span></div>
+      <div class="bar-wrap"><div class="bar-fill dl-bar" id="dl-bar"></div></div>
+      <div class="sub-row"><span>curl progress</span><span id="dl-status" class="sub-val">idle</span></div>
+      <div class="sub-row" style="margin-top:2px;"><span>file size</span><span id="dl-size" class="sub-val">—</span></div>
+    </div>
+
+    <!-- FFMPEG -->
+    <div id="ff-card">
+      <div class="card-title">FFMPEG — <span id="ff-quality-lbl" style="color:var(--purple)">WAITING</span></div>
+      <div id="ff-single">
+        <div class="bar-wrap"><div class="bar-fill ff-bar-f" id="ff-bar"></div></div>
+        <div class="ff-stats-grid">
+          <div class="ff-stat"><span class="ff-sk">TIME</span><span class="ff-sv" id="ff-time">—</span></div>
+          <div class="ff-stat"><span class="ff-sk">FPS</span><span class="ff-sv" id="ff-fps">—</span></div>
+          <div class="ff-stat"><span class="ff-sk">SPEED</span><span class="ff-sv" id="ff-speed">—</span></div>
+          <div class="ff-stat"><span class="ff-sk">FRAME</span><span class="ff-sv" id="ff-frame" style="font-size:11px">—</span></div>
+          <div class="ff-stat"><span class="ff-sk">QUALITY</span><span class="ff-sv" id="ff-q" style="font-size:11px">—</span></div>
+          <div class="ff-stat"><span class="ff-sk">PROGRESS</span><span class="ff-sv" id="ff-pct" style="color:var(--cyan)">—</span></div>
+        </div>
+      </div>
+      <div id="ff-dual">
+        <div class="ff-panel" id="ff-panel-a">
+          <div class="fp-lbl"><div class="fp-dot"></div><span class="fp-q" id="fp-a-lbl">—</span></div>
+          <div class="fp-bar-w"><div class="fp-bar" id="fp-a-bar"></div></div>
+          <div class="fp-grid">
+            <div class="fp-stat"><span class="fp-sk">TIME</span><span class="fp-sv" id="fp-a-time">—</span></div>
+            <div class="fp-stat"><span class="fp-sk">FPS</span><span class="fp-sv" id="fp-a-fps">—</span></div>
+            <div class="fp-stat"><span class="fp-sk">SPEED</span><span class="fp-sv" id="fp-a-speed">—</span></div>
+            <div class="fp-stat"><span class="fp-sk">PCT</span><span class="fp-sv" id="fp-a-pct" style="color:var(--cyan)">—</span></div>
+          </div>
+        </div>
+        <div class="ff-panel" id="ff-panel-b">
+          <div class="fp-lbl"><div class="fp-dot"></div><span class="fp-q" id="fp-b-lbl">—</span></div>
+          <div class="fp-bar-w"><div class="fp-bar" id="fp-b-bar"></div></div>
+          <div class="fp-grid">
+            <div class="fp-stat"><span class="fp-sk">TIME</span><span class="fp-sv" id="fp-b-time">—</span></div>
+            <div class="fp-stat"><span class="fp-sk">FPS</span><span class="fp-sv" id="fp-b-fps">—</span></div>
+            <div class="fp-stat"><span class="fp-sk">SPEED</span><span class="fp-sv" id="fp-b-speed">—</span></div>
+            <div class="fp-stat"><span class="fp-sk">PCT</span><span class="fp-sv" id="fp-b-pct" style="color:var(--cyan)">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div id="up-card">
+      <div class="card-title">HUGGINGFACE UPLOAD — <span id="up-quality-lbl" style="color:var(--blue)">IDLE</span></div>
+      <div id="up-filename" style="color:var(--dim);font-size:9px;">No upload in progress</div>
+      <div class="up-row">
+        <div class="up-pct-big" id="up-pct">—</div>
+        <div class="up-info">
+          <div class="bar-wrap"><div class="bar-fill up-bar-f" id="up-bar"></div></div>
+          <div class="up-meta"><span>transferred</span><span id="up-xfr" class="up-mv">—</span></div>
+          <div class="up-meta"><span>speed</span><span id="up-speed" class="up-mv">—</span></div>
+          <div class="up-meta"><span>dest</span><span id="up-dest" class="up-mv">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUALITY GRID -->
+    <div id="q-section">
+      <div class="qcard" id="qc-orig"><div class="qc-label">ORIG</div><div class="qc-size" id="qs-orig">—</div><div class="qc-elapsed" id="qe-orig">—</div><div class="qc-status" id="qst-orig">pending</div><div class="qc-bar-w"><div class="qc-bar" id="qb-orig"></div></div></div>
+      <div class="qcard" id="qc-240"><div class="qc-label">240p</div><div class="qc-size" id="qs-240">—</div><div class="qc-elapsed" id="qe-240">—</div><div class="qc-status" id="qst-240">pending</div><div class="qc-bar-w"><div class="qc-bar" id="qb-240"></div></div></div>
+      <div class="qcard" id="qc-360"><div class="qc-label">360p</div><div class="qc-size" id="qs-360">—</div><div class="qc-elapsed" id="qe-360">—</div><div class="qc-status" id="qst-360">pending</div><div class="qc-bar-w"><div class="qc-bar" id="qb-360"></div></div></div>
+      <div class="qcard" id="qc-480"><div class="qc-label">480p</div><div class="qc-size" id="qs-480">—</div><div class="qc-elapsed" id="qe-480">—</div><div class="qc-status" id="qst-480">pending</div><div class="qc-bar-w"><div class="qc-bar" id="qb-480"></div></div></div>
+      <div class="qcard" id="qc-720"><div class="qc-label">720p</div><div class="qc-size" id="qs-720">—</div><div class="qc-elapsed" id="qe-720">—</div><div class="qc-status" id="qst-720">pending</div><div class="qc-bar-w"><div class="qc-bar" id="qb-720"></div></div></div>
+      <div class="qcard" id="qc-1080"><div class="qc-label">1080p</div><div class="qc-size" id="qs-1080">—</div><div class="qc-elapsed" id="qe-1080">—</div><div class="qc-status" id="qst-1080">pending</div><div class="qc-bar-w"><div class="qc-bar" id="qb-1080"></div></div></div>
+    </div>
+
+  </div><!-- /viz -->
+
+  <!-- LOGS -->
+  <div id="logs">
+    <div id="lf-bar">
+      <button class="lf on" id="f-all"     onclick="setF('all')">ALL</button>
+      <button class="lf"    id="f-sys"     onclick="setF('sys')">SYS</button>
+      <button class="lf"    id="f-ffmpeg"  onclick="setF('ffmpeg')">FFM</button>
+      <button class="lf"    id="f-upload"  onclick="setF('upload')">UPL</button>
+      <button class="lf"    id="f-success" onclick="setF('success')">OK</button>
+      <button class="lf"    id="f-error"   onclick="setF('error')">ERR</button>
+      <span id="lc">0</span>
+    </div>
+    <div id="log-box">
+      <div id="empty-log">
+        <div class="big">📡</div>
+        <div class="h">URL mein ID daalo<br>/logs/123</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="sbar">
+  <span id="sbar-msg">IDLE</span>
+  <span>BATCH <span style="color:var(--cyan)" id="sb-batch">—</span></span>
+  <span>LOGS <span style="color:var(--cyan)" id="sb-total">0</span></span>
+  <span>SYNC <span style="color:var(--cyan)" id="sb-sync">—</span></span>
+  <span>SRC <span style="color:var(--cyan)" id="sb-src">—</span></span>
+  <span id="sb-tier" class="idle">IDLE</span>
+  <span id="elapsed">00:00:00</span>
+</div>
+
+<script>
+const AGG        = 'https://ffmpeg-logs.onrender.com';
+const MOVIE_API  = 'https://wasmer-hub.vercel.app/api/get_data.php';
+const MOVIE_BASE = 'https://wasmer-hub.vercel.app/movie';
+
+// ── STATE ─────────────────────────────────────────────────────────
+let watching=false, watchTimer=null, elTimer=null;
+let autoScroll=true, curLogs=[], curFilter='all', startTs=null;
+
+const PHASES=[
+  {icon:'🔐',label:'Security'},{icon:'📥',label:'Downloading'},
+  {icon:'🔍',label:'Analyzing'},{icon:'🔥',label:'Orig Copy'},
+  {icon:'🎤',label:'Audio Tracks'},{icon:'⚙️',label:'240p / 360p'},
+  {icon:'⚙️',label:'480p / 720p'},{icon:'⚙️',label:'1080p'},
+  {icon:'🎉',label:'Complete!'},
+];
+const TG={ffmpeg:'FFM',upload:'UPL',error:'ERR',warn:'WRN',success:'OK',skip:'SKP',sys:'SYS',default:'LOG'};
+const TC={ffmpeg:'tff',upload:'tup',error:'ter',warn:'twn',success:'tok',skip:'tsk',sys:'tsy',default:'tdf'};
+const MC={ffmpeg:'mff',upload:'mup',error:'mer',warn:'mwn',success:'mok',skip:'msk',sys:'msy',default:'mdf'};
+
+const $=id=>document.getElementById(id);
+const esc=s=>s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';
+
+// ══════════════════════════════════════════════════════════════════
+//  URL se Batch ID nikalo
+//  Support: /logs/123  ya  ?id=123
+// ══════════════════════════════════════════════════════════════════
+function getIdFromUrl() {
+  const pathMatch = window.location.pathname.match(/\/logs\/(\w+)/);
+  if (pathMatch) return pathMatch[1];
+  return new URLSearchParams(window.location.search).get('id') || null;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  Movie info fetch
+// ══════════════════════════════════════════════════════════════════
+async function fetchMovieInfo(id) {
+  try {
+    const res  = await fetch(`${MOVIE_API}?id=${id}`, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+
+    $('movie-loading').style.display = 'none';
+
+    if (data.title) {
+      $('movie-name').textContent = data.title;
+      document.title = `⚡ ${data.title} — Pipeline`;
+    }
+    if (data.slug) {
+      const btn = $('btn-watch-movie');
+      btn.href            = `${MOVIE_BASE}/${data.slug}`;
+      btn.style.display   = 'inline-block';
+    }
+  } catch(e) {
+    $('movie-loading').textContent = '⚠️ Info unavailable';
+  }
+}
+
+// ── RING ──────────────────────────────────────────────────────────
+function setRing(pct, phaseIdx) {
+  const arc=$('ring-arc'), C=2*Math.PI*70;
+  arc.style.strokeDashoffset = C*(1-pct/100);
+  arc.style.strokeDasharray  = C;
+  const col = pct>=100?'var(--green)':pct>60?'var(--cyan)':'var(--amber)';
+  arc.style.stroke = col; arc.style.filter=`drop-shadow(0 0 6px ${col})`;
+  $('ring-num').textContent = Math.round(pct)+'%';
+  $('ring-num').style.color = col;
+  $('ring-num').style.textShadow = `0 0 20px ${col}`;
+  if (phaseIdx>=0 && phaseIdx<PHASES.length) {
+    const p=PHASES[phaseIdx];
+    $('ring-icon').textContent  = p.icon;
+    $('ring-lbl').textContent   = p.label.toUpperCase();
+    $('ring-phase').textContent = p.label;
+    $('ring-phase').style.color = pct>=100?'var(--green)':'var(--bright)';
+  }
+  for(let i=0;i<9;i++){
+    const d=$(`tl-${i}`); if(!d) continue;
+    d.classList.remove('done','active','err');
+    if(i<phaseIdx) d.classList.add('done');
+    else if(i===phaseIdx) d.classList.add('active');
+    const l=$(`tll-${i}`);
+    if(l) l.classList.toggle('done', i<phaseIdx);
+  }
+}
+
+// ── applyState ────────────────────────────────────────────────────
+function applyState(st) {
+  if (!st) return;
+  const isDone = !!st.done;
+
+  // RING
+  setRing(isDone ? 100 : (st.overallPct||0), isDone ? 8 : st.phaseIdx);
+  if (st.accessDenied) { const d=$('tl-0'); if(d){d.classList.remove('done','active');d.classList.add('err');} }
+
+  // DOWNLOAD
+  const dl=st.download||{};
+  if (dl.done || dl.pct>0) {
+    const pct = dl.done ? 100 : dl.pct;
+    $('dl-pct').childNodes[0].textContent = Number(pct).toFixed(1);
+    $('dl-bar').style.width   = pct+'%';
+    $('dl-status').textContent = dl.done?'✅ Done':pct+'%';
+    $('dl-status').style.color = dl.done?'var(--green)':'var(--cyan)';
+    if (dl.sizeMb) $('dl-size').textContent = dl.sizeMb+' MB';
+  }
+
+  // SOURCE INFO
+  if (st.srcInfo) {
+    const si=st.srcInfo;
+    const mins=Math.floor(si.duration/60), secs=si.duration%60;
+    $('sb-src').textContent = `${si.height}p · ${mins}m${secs}s · ${si.audioTracks}aud`;
+  }
+
+  // FFMPEG
+  const ff=st.ffmpeg||{};
+  const isParallel = (st.parallelBatch||[]).length>=2;
+
+  if (isParallel && !isDone) {
+    $('ff-single').style.display='none'; $('ff-dual').classList.add('show');
+    const pa=ff.parallel?.a||{}, pb=ff.parallel?.b||{};
+    if(pa.quality) $('fp-a-lbl').textContent=pa.quality==='orig'?'ORIGINAL':pa.quality.toUpperCase();
+    if(pb.quality) $('fp-b-lbl').textContent=pb.quality==='orig'?'ORIGINAL':pb.quality.toUpperCase();
+    if(pa.fps)    $('fp-a-fps').textContent=pa.fps;
+    if(pa.speed)  $('fp-a-speed').textContent=pa.speed;
+    if(pa.time)   { $('fp-a-time').textContent=pa.time; $('fp-a-bar').style.width=pa.pct+'%'; $('fp-a-pct').textContent=pa.pct+'%'; }
+    if(pb.fps)    $('fp-b-fps').textContent=pb.fps;
+    if(pb.speed)  $('fp-b-speed').textContent=pb.speed;
+    if(pb.time)   { $('fp-b-time').textContent=pb.time; $('fp-b-bar').style.width=pb.pct+'%'; $('fp-b-pct').textContent=pb.pct+'%'; }
+    $('ff-panel-a').classList.toggle('active', !!pa.time);
+    $('ff-panel-b').classList.toggle('active', !!pb.time);
+    if(ff.current) $('ff-quality-lbl').textContent=ff.current.toUpperCase();
+  } else {
+    $('ff-single').style.display=''; $('ff-dual').classList.remove('show');
+    $('ff-panel-a').classList.remove('active'); $('ff-panel-b').classList.remove('active');
+    if (!isDone) {
+      if(ff.fps)   $('ff-fps').textContent=ff.fps;
+      if(ff.speed) $('ff-speed').textContent=ff.speed;
+      if(ff.frame) $('ff-frame').textContent='#'+ff.frame;
+      if(ff.q)     $('ff-q').textContent='q'+ff.q;
+      if(ff.time)  { $('ff-time').textContent=ff.time; $('ff-bar').style.width=ff.pct+'%'; $('ff-pct').textContent=ff.pct+'%'; }
+      if(ff.current) $('ff-quality-lbl').textContent=ff.current==='orig'?'ORIGINAL':ff.current.startsWith('audio')?`AUDIO ${ff.current.slice(5).toUpperCase()}`:ff.current.toUpperCase();
+      if(!ff.current) $('ff-quality-lbl').textContent='WAITING';
+    } else {
+      // Job done — sab 100% force karo
+      $('ff-bar').style.width='100%'; $('ff-pct').textContent='100%';
+      $('ff-quality-lbl').textContent='DONE ✅';
+      ['a','b'].forEach(p=>{
+        $('fp-'+p+'-bar').style.width='100%';
+        $('fp-'+p+'-pct').textContent='100%';
+      });
+    }
+  }
+
+  // UPLOAD
+  const up=st.upload||{};
+  if (up.quality) {
+    const lbl=up.quality==='orig'?'ORIGINAL':up.quality.startsWith('audio')?`AUDIO ${up.quality.slice(5)}`:up.quality.toUpperCase();
+    $('up-quality-lbl').textContent=lbl; $('up-quality-lbl').style.color='var(--blue)';
+    if(up.file)        { $('up-filename').textContent=up.file; $('up-filename').style.color='var(--blue)'; }
+    if(up.pct>0)       { $('up-pct').textContent=up.pct+'%'; $('up-bar').style.width=up.pct+'%'; }
+    if(up.transferred) $('up-xfr').textContent=up.transferred;
+    if(up.speed)       $('up-speed').textContent=up.speed;
+    if(up.dest)        $('up-dest').textContent=up.dest;
+  } else {
+    $('up-quality-lbl').textContent='IDLE'; $('up-quality-lbl').style.color='var(--dim)';
+    $('up-filename').textContent='No upload in progress'; $('up-filename').style.color='var(--dim)';
+    if (isDone) { $('up-pct').textContent='100%'; $('up-bar').style.width='100%'; }
+  }
+
+  // QUALITY CARDS — done = always 100%
+  Object.entries(st.qualities||{}).forEach(([key, qv]) => {
+    const card=$('qc-'+key), st_=$('qst-'+key), bar=$('qb-'+key),
+          size=$('qs-'+key), elapsed=$('qe-'+key);
+    if (!card) return;
+    card.classList.remove('running','done','skip','parallel');
+    switch(qv.status) {
+      case 'running':
+        card.classList.add('running');
+        if(st_) st_.textContent=qv.ffPct>0?qv.ffPct.toFixed(0)+'%':'encoding...';
+        if(bar)  bar.style.width=(qv.ffPct||0)+'%';
+        break;
+      case 'parallel':
+        card.classList.add('parallel');
+        if(st_) st_.textContent=qv.ffPct>0?qv.ffPct.toFixed(0)+'%':'queued...';
+        if(bar)  bar.style.width=(qv.ffPct||0)+'%';
+        break;
+      case 'done':
+        card.classList.add('done');
+        if(st_) st_.textContent='✓ done';
+        if(bar)  bar.style.width='100%'; // ← always 100%, ignore ffPct!
+        break;
+      case 'skip':
+        card.classList.add('skip');
+        if(st_) st_.textContent='skipped';
+        break;
+    }
+    if(size && qv.sizeMb)     size.textContent=''+qv.sizeMb+' MB';
+    if(elapsed && qv.elapsed) elapsed.textContent='⏱ '+qv.elapsed;
+  });
+
+  // DONE state — ring + sbar
+  if (isDone) {
+    setRing(100, 8);
+    $('sbar-msg').textContent=`✅ Complete${st.totalElapsed?' in '+st.totalElapsed:''}`;
+  }
+}
+
+// ── RENDER LOGS ───────────────────────────────────────────────────
+function renderLogs(logs) {
+  const box=$('log-box');
+  const list=curFilter==='all'?logs:logs.filter(l=>l.type===curFilter);
+  if (!list.length) {
+    box.innerHTML=`<div id="empty-log"><div class="big">📡</div><div class="h">Koi log nahi...<br>batch "${$('i-mid').value}" wait</div></div>`;
+    $('lc').textContent='0'; return;
+  }
+  box.innerHTML=list.slice(-300).map(l=>`<div class="le">
+    <span class="lt">${esc(l.t||l.time||'')}</span>
+    <span class="ltg ${TC[l.type]||'tdf'}">${TG[l.type]||'LOG'}</span>
+    <span class="lm ${MC[l.type]||'mdf'}">${esc(l.msg)}</span>
+  </div>`).join('');
+  $('lc').textContent=list.length;
+  if (autoScroll) box.scrollTop=box.scrollHeight;
+}
+
+// ── FETCH STATE ───────────────────────────────────────────────────
+async function fetchState() {
+  const mid=$('i-mid').value.trim();
+  if (!mid) return;
+  try {
+    const res=await fetch(`${AGG}/status/${mid}`,{signal:AbortSignal.timeout(6000)});
+    if (!res.ok) { setConn('err'); return; }
+    const data=await res.json();
+    setConn('live');
+    if (!data.found) { $('sbar-msg').textContent=`⏳ Batch "${mid}" not started yet...`; return; }
+    applyState(data.state);
+    if (data.logs?.length) { curLogs=data.logs; renderLogs(curLogs); }
+    $('sb-batch').textContent=mid;
+    $('sb-total').textContent=data.logCount||0;
+    $('sb-sync').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false});
+    const tierEl=$('sb-tier');
+    tierEl.textContent=(data.tier||'idle').toUpperCase();
+    tierEl.className=data.tier==='active'?'active':'idle';
+    if (!data.state?.done) $('sbar-msg').textContent=`⚡ ${data.logCount} logs | ${data.tier==='active'?'5s':'30s'} poll`;
+    if (data.state?.done && watching) setTimeout(stopWatch, 8000);
+  } catch(e) {
+    setConn('err');
+    $('sbar-msg').textContent='⚠️ Aggregator unreachable...';
+  }
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────────
+function toggleWatch(){ watching?stopWatch():startWatch(); }
+
+function startWatch() {
+  const mid=$('i-mid').value.trim();
+  if (!mid) { alert('Batch ID daalo pehle! 😅'); return; }
+  watching=true;
+  $('btn-w').textContent='⏹ STOP'; $('btn-w').classList.add('on');
+  $('sb-batch').textContent=mid; $('sbar-msg').textContent=`⏳ Connecting...`;
+  setConn('live');
+  if (!startTs) {
+    startTs=Date.now();
+    elTimer=setInterval(()=>{
+      const s=Math.floor((Date.now()-startTs)/1000);
+      $('elapsed').textContent=[Math.floor(s/3600),Math.floor(s%3600/60),s%60].map(n=>String(n).padStart(2,'0')).join(':');
+    },1000);
+  }
+  fetchState();
+  watchTimer=setInterval(fetchState,3000);
+}
+
+function stopWatch() {
+  watching=false; clearInterval(watchTimer);
+  $('btn-w').textContent='▶ WATCH'; $('btn-w').classList.remove('on');
+  setConn('idle'); $('sbar-msg').textContent='STOPPED';
+}
+
+function clearAll() {
+  if(watching) stopWatch();
+  curLogs=[];
+  setRing(0,-1);
+  $('ring-phase').textContent='URL mein ID daalo'; $('ring-phase').style.color='var(--dim)'; $('ring-icon').textContent='⏳';
+  $('dl-pct').childNodes[0].textContent='—'; $('dl-bar').style.width='0%'; $('dl-status').textContent='idle'; $('dl-size').textContent='—';
+  $('ff-single').style.display=''; $('ff-dual').classList.remove('show');
+  $('ff-panel-a').classList.remove('active'); $('ff-panel-b').classList.remove('active');
+  ['a','b'].forEach(p=>{ $('fp-'+p+'-bar').style.width='0%'; ['time','fps','speed','pct'].forEach(k=>$('fp-'+p+'-'+k).textContent='—'); });
+  ['ff-fps','ff-speed','ff-frame','ff-q','ff-pct','ff-time'].forEach(id=>$(id).textContent='—');
+  $('ff-bar').style.width='0%'; $('ff-quality-lbl').textContent='WAITING';
+  $('up-pct').textContent='—'; $('up-bar').style.width='0%';
+  $('up-xfr').textContent=$('up-speed').textContent=$('up-dest').textContent='—';
+  $('up-filename').textContent='No upload in progress'; $('up-filename').style.color='var(--dim)';
+  $('up-quality-lbl').textContent='IDLE'; $('up-quality-lbl').style.color='var(--dim)';
+  ['orig','240','360','480','720','1080'].forEach(q=>{ $('qc-'+q).className='qcard'; $('qs-'+q).textContent='—'; $('qe-'+q).textContent='—'; $('qst-'+q).textContent='pending'; $('qb-'+q).style.width='0%'; });
+  $('sb-src').textContent='—'; $('sb-total').textContent='0'; $('sb-sync').textContent='—';
+  $('sb-tier').textContent='IDLE'; $('sb-tier').className='idle'; $('sbar-msg').textContent='IDLE';
+  startTs=null; clearInterval(elTimer); $('elapsed').textContent='00:00:00';
+  renderLogs([]);
+}
+
+function setF(f){
+  curFilter=f;
+  document.querySelectorAll('.lf').forEach(b=>b.className='lf');
+  const cls={all:'on',sys:'on',ffmpeg:'op',upload:'ob',success:'og',error:'or',skip:'on'}[f]||'on';
+  $('f-'+f).className='lf '+cls;
+  renderLogs(curLogs);
+}
+
+function setConn(s){
+  const d=$('cdot'); d.classList.remove('live','err');
+  if(s==='live'){d.classList.add('live');$('clbl').textContent='LIVE';}
+  else if(s==='err'){d.classList.add('err');$('clbl').textContent='ERROR';}
+  else $('clbl').textContent='IDLE';
+}
+
+function exportLogs(){
+  if(!curLogs.length){alert('Koi log nahi hai!');return;}
+  const mid=$('i-mid').value.trim()||'unknown';
+  const ts=new Date().toISOString().replace(/[:.]/g,'-');
+  let out='='.repeat(70)+'\n  PIPELINE LOG EXPORT\n  Batch: '+mid+'\n  Logs: '+curLogs.length+'\n'+'='.repeat(70)+'\n\n';
+  curLogs.forEach(l=>out+=`[${l.t||l.time}] [${(l.type||'LOG').toUpperCase().padEnd(7)}] ${l.msg}\n`);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([out],{type:'text/plain'}));
+  a.download=`pipeline_log_${mid}_${ts}.txt`; a.click();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PAGE INIT — URL se ID lo, auto-start karo
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+  const urlId = getIdFromUrl();
+  if (urlId) {
+    $('i-mid').value = urlId;
+
+    // Movie bar dikhao aur info fetch karo
+    $('mid-tag').textContent = '#'+urlId;
+    $('movie-bar').classList.add('show');
+    fetchMovieInfo(urlId);
+
+    // Auto-start watching
+    startWatch();
+  }
+})();
+
+// Enter key
+$('i-mid').addEventListener('keydown', e=>{
+  if(e.key==='Enter') {
+    const mid=$('i-mid').value.trim();
+    if(mid) {
+      history.pushState(null,'',`/logs/${mid}`);
+      $('mid-tag').textContent='#'+mid;
+      $('movie-bar').classList.add('show');
+      $('movie-loading').style.display='inline';
+      $('movie-loading').textContent='⏳ Fetching info...';
+      $('btn-watch-movie').style.display='none';
+      fetchMovieInfo(mid);
+    }
+    startWatch();
+  }
+});
+
+// Scroll detect
+$('log-box').addEventListener('scroll', function(){
+  autoScroll=this.scrollTop+this.clientHeight>=this.scrollHeight-20;
+});
+</script>
+</body>
+</html>
